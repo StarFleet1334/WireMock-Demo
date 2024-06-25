@@ -31,6 +31,8 @@ dependencies {
     implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jdk8:2.14.0'
     implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.14.0'
     implementation 'com.fasterxml.jackson.module:jackson-module-parameter-names:2.14.0'
+    testImplementation 'io.projectreactor:reactor-test:3.6.7'
+
 }
 
 tasks.named('test') {

@@ -6,98 +6,102 @@ import org.junit.jupiter.api.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.reactive.function.client.WebClient;
-
-import java.time.LocalDate;
-import java.util.List;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class AnimeRestTest {
-    AnimeRestClient moviesRestClient = null;
-    WebClient webClient = null;
+    private AnimeRestClient animeRestClient;
+    private WebClient webClient;
     private static final Logger LOGGER = LoggerFactory.getLogger(AnimeRestTest.class);
+    private static final int PORT = 8080;
 
     @BeforeEach
     void setUp() {
-        int port = 8080;
-        final String baseUrl = String.format("http://localhost:%s/", port);
+        final String baseUrl = String.format("http://localhost:%s/", PORT);
         webClient = WebClient.create(baseUrl);
-        moviesRestClient = new AnimeRestClient(webClient);
+        animeRestClient = new AnimeRestClient(webClient);
+    }
+
+    @Test
+    void getAllAnimeAndPrint() {
+        Flux<Anime> animeFlux = animeRestClient.getAllAnime();
+        StepVerifier.create(animeFlux.doOnNext(anime -> System.out.println("Anime: " + anime)))
+                .expectNextCount(21)  // Assuming you expect 20 items
+                .expectComplete()
+                .verify();
     }
 
     @Test
     void getAllAnime() {
-        //when
-        List<Anime> movieList = moviesRestClient.getAllAnime();
-        LOGGER.info("\nAnime list: {}", movieList);
-        //then
-        assertFalse(movieList.isEmpty());
+        Flux<Anime> animeFlux = animeRestClient.getAllAnime();
+        StepVerifier.create(animeFlux)
+                .expectNextMatches(anime -> {
+                    assertNotNull(anime, "Anime should not be null");
+                    return anime.getTitle().contains("Naruto"); // Check if 'Naruto' is in the list
+                })
+                .expectNextCount(19)  // Expect 19 more elements, adjust number based on expected items
+                .verifyComplete();
     }
 
     @Test
     void retrieveAnimeById() {
-        //given
-        Integer animeId = 2;
-
-        //when
-        Anime anime = moviesRestClient.getAnimeById(animeId);
-
-        LOGGER.info("Anime retrieved: {}", anime);
-        //then
-        assertEquals("Naruto", anime.getTitle());
+        Integer animeId = 1;
+        Mono<Anime> animeMono = animeRestClient.getAnimeById(animeId);
+        StepVerifier.create(animeMono)
+                .assertNext(anime -> {
+                    assertNotNull(anime, "Anime should not be null");
+                    assertEquals("Naruto", anime.getTitle(), "The title should match 'Naruto'");
+                    assertEquals(8.5, anime.getRating(), "Rating should match 8.5");
+                })
+                .expectComplete()
+                .verify();
     }
-
 
     @Test
     void addNewAnime() {
-        //given
-        Anime newAnime =  new Anime();
-        newAnime.setTitle("Kavawaki");
-        newAnime.setRating(9.2);
-        newAnime.setMaincharacter("Bob");
-        newAnime.setDescription("It is long story");
+        Anime newAnime = Anime.builder()
+                .title("Kavawaki")
+                .rating(9.2)
+                .maincharacter("Bob")
+                .description("It is long story")
+                .build();
 
-        //when
-        Anime anime = moviesRestClient.postNewAnime(newAnime);
+        Mono<Anime> savedAnimeMono = animeRestClient.postNewAnime(newAnime);
 
-        //then
-        assertTrue(anime.getTitle() != null);
-
+        StepVerifier.create(savedAnimeMono)
+                .assertNext(savedAnime -> {
+                    assertNotNull(savedAnime, "Saved anime should not be null");
+                    assertEquals("Kavawaki", savedAnime.getTitle(), "The title should match 'Kavawaki'");
+                })
+                .expectComplete()
+                .verify();
     }
-
-
 
     @Test
-    void updateMovie() {
-        //given
-        Anime updatedAnime = new Anime(3, "One Piece (Found)", 9, "Monkey D. Luffy", "Luffy and his pirate crew in search of the legendary treasure called \"One Piece\" to become the Pirate King.");
+    void updateAnime() {
+        Anime updatedAnime = new Anime(3, "One Piece (Updated)", 9, "Monkey D. Luffy", "The quest continues for the ultimate treasure, One Piece.");
+        Mono<Anime> updatedAnimeMono = animeRestClient.updateExistingAnime(3, updatedAnime);
 
-        Integer animeId = 3;
-
-        //when
-        Anime anime = moviesRestClient.updateExistingAnime(animeId, updatedAnime);
-
-        //then
-        String newTitle = "One Piece (Found)";
-        assertTrue(anime.getTitle().contains(newTitle));
+        StepVerifier.create(updatedAnimeMono)
+                .assertNext(anime -> assertEquals("One Piece (Updated)", anime.getTitle(), "Title should be updated to 'One Piece (Updated)'"))
+                .expectComplete()
+                .verify();
     }
-
 
     @Test
-    void deleteMovie() {
-
-        //given
-        String batmanBeginsCrew = "Tom Hanks, Tim Allen";
-        Anime anime = new Anime(4, "My Hero Academia", 8.8, "Izuku Midoriya", "A boy born without superpowers in a world where they are common, but still dreams of becoming a superhero.");
-
-
-        //when
-        String response = moviesRestClient.deleteAnimeById(4);
-        LOGGER.info("\nAnime response: {}", response);
+    void deleteAnime() {
+        Mono<String> deleteResponseMono = animeRestClient.deleteAnimeById(4);
+        StepVerifier.create(deleteResponseMono)
+                .assertNext(response -> assertEquals("Deleted anime with id: 4", response, "Response should confirm deletion of anime id 4"))
+                .expectComplete()
+                .verify();
     }
 
-
-
-
+    @AfterEach
+    void tearDown() {
+        // Optional cleanup can be done here if necessary
+    }
 }
