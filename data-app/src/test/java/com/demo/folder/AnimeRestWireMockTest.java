@@ -2,26 +2,48 @@ package com.demo.folder;
 
 import com.demo.folder.dto.Anime;
 import com.demo.folder.service.AnimeRestClient;
-import org.junit.jupiter.api.*;
+import com.github.jenspiegsa.wiremockextension.ConfigureWireMock;
+import com.github.jenspiegsa.wiremockextension.InjectServer;
+import com.github.jenspiegsa.wiremockextension.WireMockExtension;
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.common.ConsoleNotifier;
+import com.github.tomakehurst.wiremock.core.WireMockConfiguration;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
-import static org.junit.jupiter.api.Assertions.*;
 
-// Goal using WireMock is to interact with WireMock Server instead of actual Anime Data Service
+import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-public class AnimeRestTest {
+// The Goal using WireMock is to interact with WireMock Server instead of actual Anime Data Service
+
+@ExtendWith(WireMockExtension.class)
+public class AnimeRestWireMockTest {
     private AnimeRestClient animeRestClient;
     private WebClient webClient;
-    private static final Logger LOGGER = LoggerFactory.getLogger(AnimeRestTest.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(AnimeRestWireMockTest.class);
     private static final int PORT = 8080;
+    private static final int WIREMOCK_PORT= 2;
+
+    @InjectServer
+    WireMockServer wireMockServer;
+
+    @ConfigureWireMock
+    WireMockConfiguration options = wireMockConfig().port(8088).notifier(new ConsoleNotifier(true));
 
     @BeforeEach
     void setUp() {
-        final String baseUrl = String.format("http://localhost:%s/", PORT);
+        int port = wireMockServer.port();
+        final String baseUrl = String.format("http://localhost:%s/", port);
+        System.out.println("Base url: " + baseUrl);
         webClient = WebClient.create(baseUrl);
         animeRestClient = new AnimeRestClient(webClient);
     }
